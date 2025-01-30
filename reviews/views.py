@@ -5,6 +5,7 @@ from .models import Review
 from django.views import View
 from django.views.generic.base import TemplateView
 from .models import Review
+from django.views.generic import DetailView
 
 # Create your views here.
 class ReviewView(View):
@@ -37,15 +38,31 @@ class ReviewlistView(TemplateView):
         context = super().get_context_data(**kwargs)
         review = Review.objects.all()
         context["reviews"] = review
-        return context          
-class DetailviewView(TemplateView):
+        return context   
+             
+class DetailviewView(DetailView):
+    model = Review  
     template_name = "reviews/single-review.html"
-    
-    def get_context_data(self,**kwargs):
+    context_object_name = "reviews"  
+
+    def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        review_id = kwargs["id"]
-        selected_review = Review.objects.get(pk = review_id)
-        context["reviews"] = selected_review
+        request = self.request
+        favorite_id = request.session.get("favorite_review")  
+        context["is_favorite"] = (favorite_id == self.object.id)
         return context
     
+class AddFavoriteView(View):
+    def post(self, request):
+        review_id = request.POST.get("review_id") 
         
+        if review_id:
+            try:
+                Review.objects.get(pk=review_id)  
+                request.session["favorite_review"] = int(review_id)  
+                request.session.modified = True  
+                return HttpResponseRedirect(f"/reviews/{review_id}")
+            except Review.DoesNotExist:
+                return HttpResponseRedirect("/reviews/")  
+
+        return HttpResponseRedirect("/reviews/")  
